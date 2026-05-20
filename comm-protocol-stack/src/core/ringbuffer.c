@@ -54,10 +54,14 @@ uint16_t ringbuffer_available(const ringbuffer_t *rb) {
     if (!rb)
         return 0;
     
+    uint16_t result;
     if (rb->write_pos >= rb->read_pos)
-        return rb->write_pos - rb->read_pos;
+        result = rb->write_pos - rb->read_pos;
     else
-        return rb->capacity - rb->read_pos + rb->write_pos;
+        result = rb->capacity - rb->read_pos + rb->write_pos;
+    fprintf(stderr, "[RB DBG] available: write_pos=%d read_pos=%d cap=%d result=%d\n",
+            rb->write_pos, rb->read_pos, rb->capacity, result);
+    return result;
 }
 
 uint16_t ringbuffer_free(const ringbuffer_t *rb) {
@@ -79,6 +83,7 @@ uint16_t ringbuffer_write(ringbuffer_t *rb, const uint8_t *data, uint16_t len) {
         return 0;
     
     uint16_t available = ringbuffer_free(rb);
+    fprintf(stderr, "[RB DBG] write: request=%d free=%d\n", len, available);
     if (len > available)
         len = available;  /* 丢弃溢出数据 */
     
@@ -87,6 +92,7 @@ uint16_t ringbuffer_write(ringbuffer_t *rb, const uint8_t *data, uint16_t len) {
     
     /* 分两段写入：尾部 + 头部（环绕） */
     uint16_t tail_len = rb->capacity - rb->write_pos;
+    fprintf(stderr, "[RB DBG] write: tail_len=%d\n", tail_len);
     if (tail_len >= len) {
         /* 只需写入尾部 */
         memcpy(rb->buffer + rb->write_pos, data, len);
@@ -97,6 +103,7 @@ uint16_t ringbuffer_write(ringbuffer_t *rb, const uint8_t *data, uint16_t len) {
         memcpy(rb->buffer, data + tail_len, len - tail_len);
         rb->write_pos = (rb->write_pos + len) & (rb->capacity - 1);
     }
+    fprintf(stderr, "[RB DBG] write done: write_pos=%d\n", rb->write_pos);
     
     return len;
 }
@@ -130,14 +137,18 @@ uint16_t ringbuffer_read_pop(ringbuffer_t *rb, uint8_t *data, uint16_t len) {
         return 0;
     
     uint16_t avail = ringbuffer_available(rb);
+    fprintf(stderr, "[RB DBG] read_pop: request=%d avail=%d\n", len, avail);
     if (len > avail)
         len = avail;
     
-    if (len == 0)
+    if (len == 0) {
+        fprintf(stderr, "[RB DBG] read_pop: returning 0 (no data)\n");
         return 0;
+    }
     
     /* 分两段读出：尾部 + 头部（环绕） */
     uint16_t tail_len = rb->capacity - rb->read_pos;
+    fprintf(stderr, "[RB DBG] read_pop: tail_len=%d\n", tail_len);
     if (tail_len >= len) {
         memcpy(data, rb->buffer + rb->read_pos, len);
         rb->read_pos = (rb->read_pos + len) & (rb->capacity - 1);
@@ -146,6 +157,7 @@ uint16_t ringbuffer_read_pop(ringbuffer_t *rb, uint8_t *data, uint16_t len) {
         memcpy(data + tail_len, rb->buffer, len - tail_len);
         rb->read_pos = (rb->read_pos + len) & (rb->capacity - 1);
     }
+    fprintf(stderr, "[RB DBG] read_pop done: read_pos=%d\n", rb->read_pos);
     
     return len;
 }
