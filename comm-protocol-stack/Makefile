@@ -40,16 +40,17 @@ test: $(TESTS)
 	for t in $(TESTS); do \
 		echo ""; \
 		echo "Running $$t..."; \
-		./$$t || failed=1; \
-	done; \
+		./$$t || failed=$$?; \
+		done; \
 	echo ""; \
 	echo "========================================"; \
 	if [ $$failed -eq 0 ]; then \
 		echo "All tests passed!"; \
 	else \
-		echo "Some tests failed!"; \
+		echo "Some tests failed (exit code $$failed)!"; \
 	fi; \
-	echo "========================================"
+	echo "========================================"; \
+	exit $$failed
 
 test_ringbuffer: test/test_ringbuffer.c $(CORE_SRC)
 	$(CC) $(CFLAGS) -o $@ $< $(CORE_SRC) $(LDFLAGS)
