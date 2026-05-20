@@ -140,7 +140,13 @@ static int uart_open_platform(uart_handle_t *handle) {
     tty.c_cflag |= CLOCAL | CREAD;
     tty.c_cflag &= ~PARENB;  /* 无校验 */
     tty.c_cflag &= ~CSTOPB;  /* 1停止位 */
-    tty.c_cflag &= ~CRTSCTS; /* 无硬件流控 */
+    #ifdef CRTSCTS
+    tty.c_cflag &= ~CRTSCTS;
+    #elif defined(CNEW_RTSCTS)
+    tty.c_cflag &= ~CNEW_RTSCTS;
+    #else
+    tty.c_cflag &= ~0;  /* 无硬件流控 */
+    #endif
     
     /* 原始输入模式 */
     tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
