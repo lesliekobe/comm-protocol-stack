@@ -69,8 +69,8 @@ static int test_crc_consistency(void) {
     uint8_t frame[64];
     uint16_t frame_len = proto_pack(addr, cmd, data, sizeof(data), frame, sizeof(frame));
     
-    /* 从帧中提取CRC（倒数第3和第2字节） */
-    uint16_t packed_crc = (frame[frame_len-3] << 8) | frame[frame_len-2];
+    /* 从帧中提取CRC（payload后2字节，即frame_len-4和frame_len-3） */
+    uint16_t packed_crc = (frame[frame_len-4] << 8) | frame[frame_len-3];
     printf("Packed CRC: 0x%04X\n", packed_crc);
     
     /* 用parser逐步计算CRC */
