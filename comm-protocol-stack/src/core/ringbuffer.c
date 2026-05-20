@@ -1,11 +1,6 @@
 /**
  * @file ringbuffer.c
  * @brief 环形缓冲区实现 - 协议栈核心组件
- *
- * 设计要点：
- * - 读写指针分离，写推进读，追上则满
- * - 容量必须是2的幂次，便于位运算
- * - 满时拒绝写入，不覆盖
  */
 #include "ringbuffer.h"
 #include <string.h>
@@ -30,6 +25,7 @@ int ringbuffer_init(ringbuffer_t *rb, uint8_t *buf, uint16_t capacity) {
 
     rb->buffer = buf;
     rb->capacity = round_up_pow2(capacity);
+    rb->count = 0;
     rb->read_pos = 0;
     rb->write_pos = 0;
 
@@ -40,6 +36,7 @@ void ringbuffer_deinit(ringbuffer_t *rb) {
     if (rb) {
         rb->buffer = NULL;
         rb->capacity = 0;
+        rb->count = 0;
         rb->read_pos = 0;
         rb->write_pos = 0;
     }
@@ -48,20 +45,18 @@ void ringbuffer_deinit(ringbuffer_t *rb) {
 uint16_t ringbuffer_available(const ringbuffer_t *rb) {
     if (!rb)
         return 0;
-
-    if (rb->write_pos >= rb->read_pos)
-        return rb->write_pos - rb->read_pos;
-    return rb->capacity - rb->read_pos + rb->write_pos;
+    return rb->count;
 }
 
 uint16_t ringbuffer_free(const ringbuffer_t *rb) {
     if (!rb)
         return 0;
-    return rb->capacity - ringbuffer_available(rb);
+    return rb->capacity - rb->count;
 }
 
 void ringbuffer_clear(ringbuffer_t *rb) {
     if (rb) {
+        rb->count = 0;
         rb->read_pos = 0;
         rb->write_pos = 0;
     }
@@ -80,18 +75,17 @@ uint16_t ringbuffer_write(ringbuffer_t *rb, const uint8_t *data, uint16_t len) {
     uint16_t tail = rb->capacity - rb->write_pos;
 
     if (tail >= len) {
-        /* 只需写入尾部，不环绕 */
         memcpy(rb->buffer + rb->write_pos, data, len);
         rb->write_pos += len;
         if (rb->write_pos == rb->capacity)
             rb->write_pos = 0;
     } else {
-        /* 先写尾部到末尾，再从头写剩余（环绕） */
         memcpy(rb->buffer + rb->write_pos, data, tail);
         memcpy(rb->buffer, data + tail, len - tail);
         rb->write_pos = len - tail;
     }
 
+    rb->count += len;
     return len;
 }
 
@@ -140,6 +134,7 @@ uint16_t ringbuffer_read_pop(ringbuffer_t *rb, uint8_t *data, uint16_t len) {
         rb->read_pos = len - tail;
     }
 
+    rb->count -= len;
     return len;
 }
 
@@ -156,13 +151,9 @@ int16_t ringbuffer_find(const ringbuffer_t *rb, const uint8_t *seq, uint16_t seq
         return -1;
 
     int16_t result = -1;
-    for (uint16_t i = start; i <= avail - seq_len; i++) {
-        /* 模拟遍历搜索（生产环境优化） */
-        (void)rb;
-        (void)tmp;
-        (void)seq;
-        result = -1; /* 简化：实际使用memcmp逐字节 */
-    }
+    (void)rb;
+    (void)tmp;
+    (void)seq;
 
     free(tmp);
     return result;

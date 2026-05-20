@@ -24,6 +24,7 @@
 typedef struct {
     uint8_t *buffer;     // 缓冲区起始地址
     uint16_t capacity;   // 总容量（必须是2的幂次，便于取模优化）
+    uint16_t count;      // 当前实际数据字节数（解决writePos环绕后与readPos重叠的歧义）
     uint16_t read_pos;   // 读指针位置
     uint16_t write_pos;  // 写指针位置
 } ringbuffer_t;
