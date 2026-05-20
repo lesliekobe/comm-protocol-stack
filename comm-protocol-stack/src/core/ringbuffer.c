@@ -11,6 +11,9 @@
  */
 static uint16_t round_up_pow2(uint16_t n) {
     if (n == 0) return 1;
+    /* 如果本身是2的幂次，直接返回 */
+    if ((n & (n - 1)) == 0) return n;
+    /* 否则向上取整到最近的2的幂次 */
     n |= n >> 1;
     n |= n >> 2;
     n |= n >> 4;
