@@ -8,33 +8,27 @@
 #include <stdio.h>
 
 /**
- * 判断是否是2的幂次
- */
-static int is_power_of_2(uint16_t n) {
-    return (n > 0) && ((n & (n - 1)) == 0);
-}
-
-/**
  * 向上取整到最近的2的幂次
  */
 static uint16_t round_up_pow2(uint16_t n) {
-    if (is_power_of_2(n))
-        return n;
-    
-    while (n & (n - 1))
-        n &= (n - 1);
-    return n << 1;
+    if (n == 0) return 1;
+    n--;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n++;
+    return n;
 }
 
 int ringbuffer_init(ringbuffer_t *rb, uint8_t *buf, uint16_t capacity) {
     if (!rb || !buf || capacity == 0)
         return -1;
     
-    /* 容量向上取整到2的幂次，便于取模优化 */
-    uint16_t real_capacity = round_up_pow2(capacity);
+    uint16_t cap = round_up_pow2(capacity);
     
     rb->buffer = buf;
-    rb->capacity = real_capacity;
+    rb->capacity = cap;
     rb->read_pos = 0;
     rb->write_pos = 0;
     
@@ -80,20 +74,24 @@ uint16_t ringbuffer_write(ringbuffer_t *rb, const uint8_t *data, uint16_t len) {
     
     uint16_t free = ringbuffer_free(rb);
     if (len > free)
-        len = free;  /* 丢弃溢出数据 */
+        len = free;
     
     if (len == 0)
         return 0;
     
-    /* 分两段写入：尾部 + 头部（环绕） */
-    uint16_t tail_len = rb->capacity - rb->write_pos;
-    if (tail_len >= len) {
+    uint16_t tail = rb->capacity - rb->write_pos;
+    
+    if (tail >= len) {
+        /* 只需写入尾部 */
         memcpy(rb->buffer + rb->write_pos, data, len);
-        rb->write_pos = (rb->write_pos + len) & (rb->capacity - 1);
+        rb->write_pos = (rb->write_pos + len);
+        if (rb->write_pos >= rb->capacity)
+            rb->write_pos -= rb->capacity;
     } else {
-        memcpy(rb->buffer + rb->write_pos, data, tail_len);
-        memcpy(rb->buffer, data + tail_len, len - tail_len);
-        rb->write_pos = (rb->write_pos + len) & (rb->capacity - 1);
+        /* 先写尾部，再从头开始写（环绕） */
+        memcpy(rb->buffer + rb->write_pos, data, tail);
+        memcpy(rb->buffer, data + tail, len - tail);
+        rb->write_pos = len - tail;
     }
     
     return len;
@@ -110,14 +108,13 @@ uint16_t ringbuffer_read(ringbuffer_t *rb, uint8_t *data, uint16_t len) {
     if (len == 0)
         return 0;
     
-    /* 分两段读出：尾部 + 头部（环绕） */
-    uint16_t tail_len = rb->capacity - rb->read_pos;
-    if (tail_len >= len) {
+    uint16_t tail = rb->capacity - rb->read_pos;
+    
+    if (tail >= len) {
         memcpy(data, rb->buffer + rb->read_pos, len);
-        /* 不移动读指针，仅查询 */
     } else {
-        memcpy(data, rb->buffer + rb->read_pos, tail_len);
-        memcpy(data + tail_len, rb->buffer, len - tail_len);
+        memcpy(data, rb->buffer + rb->read_pos, tail);
+        memcpy(data + tail, rb->buffer, len - tail);
     }
     
     return len;
@@ -134,15 +131,17 @@ uint16_t ringbuffer_read_pop(ringbuffer_t *rb, uint8_t *data, uint16_t len) {
     if (len == 0)
         return 0;
     
-    /* 分两段读出：尾部 + 头部（环绕） */
-    uint16_t tail_len = rb->capacity - rb->read_pos;
-    if (tail_len >= len) {
+    uint16_t tail = rb->capacity - rb->read_pos;
+    
+    if (tail >= len) {
         memcpy(data, rb->buffer + rb->read_pos, len);
-        rb->read_pos = (rb->read_pos + len) & (rb->capacity - 1);
+        rb->read_pos += len;
+        if (rb->read_pos >= rb->capacity)
+            rb->read_pos -= rb->capacity;
     } else {
-        memcpy(data, rb->buffer + rb->read_pos, tail_len);
-        memcpy(data + tail_len, rb->buffer, len - tail_len);
-        rb->read_pos = (rb->read_pos + len) & (rb->capacity - 1);
+        memcpy(data, rb->buffer + rb->read_pos, tail);
+        memcpy(data + tail, rb->buffer, len - tail);
+        rb->read_pos = len - tail;
     }
     
     return len;
@@ -156,22 +155,19 @@ int16_t ringbuffer_find(const ringbuffer_t *rb, const uint8_t *seq, uint16_t seq
     if (start >= avail || start + seq_len > avail)
         return -1;
     
-    /* 临时读取缓冲区用于搜索 */
     uint8_t *temp = (uint8_t *)malloc(seq_len);
     if (!temp)
         return -1;
     
     int16_t result = -1;
-    uint16_t search_len = avail - start;
     
-    for (uint16_t i = start; i <= search_len - seq_len; i++) {
+    for (uint16_t i = start; i <= avail - seq_len; i++) {
+        /* 临时读取（不弹出）来比较 */
         ringbuffer_read(rb, temp, seq_len);
-        /* 这里简化处理，实际应用可优化 */
         if (memcmp(temp, seq, seq_len) == 0) {
             result = i;
             break;
         }
-        /* 移动读指针模拟遍历（不推荐生产环境） */
     }
     
     free(temp);
