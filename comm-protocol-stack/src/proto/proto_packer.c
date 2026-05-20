@@ -5,7 +5,6 @@
 #include "proto_packer.h"
 #include "../core/crc.h"
 #include <string.h>
-#include <stdio.h>
 
 uint16_t proto_pack(uint8_t addr, uint8_t cmd, const uint8_t *data, uint16_t data_len,
                     uint8_t *frame_buf, uint16_t buf_size) {
