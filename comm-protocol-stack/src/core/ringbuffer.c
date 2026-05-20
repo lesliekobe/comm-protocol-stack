@@ -5,6 +5,7 @@
 #include "ringbuffer.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /**
  * 判断是否是2的幂次
