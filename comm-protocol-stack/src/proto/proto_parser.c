@@ -57,15 +57,14 @@ int proto_parser_feed(proto_parser_t *parser, uint8_t byte) {
         /* ========== 等待长度高字节 ========== */
         case PARSER_STATE_WAIT_LEN1:
             parser->expected_len = ((uint16_t)byte << 8);
-            /* 更新CRC（不含长度bytes本身，在后面统一处理） */
-            parser->crc_calc = crc16_modbus_update(parser->crc_calc, &byte, 1);
+            /* 不更新CRC：长度字段不参与校验 */
             parser->state = PARSER_STATE_WAIT_LEN2;
             break;
         
         /* ========== 等待长度低字节 ========== */
         case PARSER_STATE_WAIT_LEN2:
             parser->expected_len |= byte;
-            parser->crc_calc = crc16_modbus_update(parser->crc_calc, &byte, 1);
+            /* 不更新CRC：长度字段不参与校验 */
             
             /* 检查长度合理性：最小帧头+尾+校验+地址+命令 = 8字节 */
             /* 但这里 expected_len 是从地址开始到校验前的长度 */
