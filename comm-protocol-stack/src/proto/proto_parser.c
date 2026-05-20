@@ -228,22 +228,3 @@ const char* proto_parser_state_str(parser_state_t state) {
         default: return "UNKNOWN";
     }
 }
-
-/**
- * CRC16增量更新（用于状态机中逐步计算）
- * 注意：标准CRC实现需要整个数据块，这里提供增量接口
- */
-uint16_t crc16_modbus_update(uint16_t crc, const uint8_t *data, uint32_t len) {
-    for (uint32_t i = 0; i < len; i++) {
-        crc ^= data[i];
-        for (uint8_t j = 0; j < 8; j++) {
-            if (crc & 0x0001) {
-                crc >>= 1;
-                crc ^= 0xA001;
-            } else {
-                crc >>= 1;
-            }
-        }
-    }
-    return crc;
-}

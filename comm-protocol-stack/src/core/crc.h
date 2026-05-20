@@ -88,4 +88,13 @@ uint8_t checksum_sum8(const uint8_t *data, uint32_t len);
  */
 uint16_t checksum_sum16(const uint8_t *data, uint32_t len);
 
+/**
+ * CRC16-Modbus 增量更新（用于状态机中逐字节计算）
+ * @param crc   已有CRC值
+ * @param data  数据指针
+ * @param len   数据长度
+ * @return 更新后的CRC值
+ */
+uint16_t crc16_modbus_update(uint16_t crc, const uint8_t *data, uint32_t len);
+
 #endif /* CRC_H */

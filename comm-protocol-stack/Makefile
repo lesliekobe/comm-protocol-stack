@@ -1,7 +1,7 @@
 # Makefile for Comm Protocol Stack
 
 CC = gcc
-CFLAGS = -Wall -Wextra -I./src -std=c11 -Os
+CFLAGS = -Wall -Wextra -I./src -I./src/core -I./src/proto -I./src/transport -std=c11 -Os
 LDFLAGS =
 
 # 源文件

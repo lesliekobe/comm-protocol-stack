@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>虫洞模拟器 - Wormhole Simulator</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { 
+    background: #000; 
+    color: #fff; 
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 { font-size: 1.5em; margin-bottom: 10px; color: #0ff; text-shadow: 0 0 20px #0ff; }
+  .container { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; }
+  canvas { 
+    border: 1px solid #333; 
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(0,200,255,0.2);
+  }
+  .controls {
+    margin-top: 20px;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  label { font-size: 0.85em; color: #aaa; }
+  input[type="range"] { width: 150px; accent-color: #0ff; }
+  .info {
+    margin-top: 20px;
+    font-size: 0.85em;
+    color: #888;
+    max-width: 600px;
+    text-align: center;
+    line-height: 1.6;
+  }
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+    font-size: 0.8em;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<h1>🕳️ 虫洞模拟器</h1>
+
+<div class="container">
+  <div>
+    <canvas id="canvas1" width="400" height="400"></canvas>
+    <div class="legend">
+      <div class="legend-item"><div class="dot" style="background:#0ff;box-shadow:0 0 5px #0ff"></div>虫洞核心</div>
+      <div class="legend-item"><div class="dot" style="background:#f80"></div>爱因斯坦环</div>
+      <div class="legend-item"><div class="dot" style="background:#fff"></div>背景星空</div>
+    </div>
+    <p style="text-align:center;font-size:0.8em;color:#666;margin-top:8px">引力透镜效应</p>
+  </div>
+  
+  <div>
+    <canvas id="canvas2" width="400" height="400"></canvas>
+    <p style="text-align:center;font-size:0.8em;color:#666;margin-top:8px">虫洞隧道</p>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>能量强度: <span id="energyVal">1.0</span></label>
+    <input type="range" id="energy" min="0.2" max="2" step="0.1" value="1">
+  </div>
+  <div class="control-group">
+    <label>虫洞半径: <span id="radiusVal">0.5</span></label>
+    <input type="range" id="radius" min="0.2" max="1.5" step="0.1" value="0.5">
+  </div>
+  <div class="control-group">
+    <label>旋转速度: <span id="spinVal">1.0</span></label>
+    <input type="range" id="spin" min="0" max="3" step="0.2" value="1">
+  </div>
+  <div class="control-group">
+    <label>脉动频率: <span id="pulseVal">2.0</span></label>
+    <input type="range" id="pulse" min="0.5" max="5" step="0.5" value="2">
+  </div>
+</div>
+
+<p class="info">
+基于广义相对论的爱因斯坦-罗森桥（虫洞）可视化。<br>
+中心蓝色区域为虫洞喉部，周围橙红色为吸积盘，最外围为引力透镜扭曲的星光。<br>
+⚠️ 本模拟仅供视觉效果演示，实际虫洞需要负能量物质和巨大能量维持。
+</p>
+
+<script>
+const canvas1 = document.getElementById('canvas1');
+const canvas2 = document.getElementById('canvas2');
+const ctx1 = canvas1.getContext('2d');
+const ctx2 = canvas2.getContext('2d');
+
+let params = {
+  energy: 1.0,
+  radius: 0.5,
+  spin: 1.0,
+  pulse: 2.0
+};
+
+// 参数控件
+['energy','radius','spin','pulse'].forEach(key => {
+  const el = document.getElementById(key);
+  const val = document.getElementById(key + 'Val');
+  el.addEventListener('input', () => {
+    params[key] = parseFloat(el.value);
+    val.textContent = params[key];
+  });
+});
+
+function drawStars(ctx, w, h, count=200) {
+  ctx.save();
+  for (let i = 0; i < count; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const size = Math.random() * 1.5 + 0.5;
+    const alpha = Math.random() * 0.5 + 0.3;
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawLensingRings(ctx, cx, cy, maxR, t) {
+  // 引力透镜环
+  const rings = 5;
+  for (let i = 0; i < rings; i++) {
+    const r = maxR * (0.4 + 0.12 * i);
+    const wobble = Math.sin(t * params.pulse + i * 0.8) * 0.02;
+    const alpha = 0.4 - i * 0.06;
+    
+    ctx.strokeStyle = `rgba(255,140,0,${alpha})`;
+    ctx.lineWidth = 2 - i * 0.3;
+    ctx.beginPath();
+    
+    // 扭曲的环
+    for (let theta = 0; theta <= Math.PI * 2; theta += 0.05) {
+      const distR = r + Math.sin(theta * 6 + t * 2) * r * 0.03;
+      const x = cx + distR * Math.cos(theta);
+      const y = cy + distR * Math.sin(theta);
+      if (theta === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+}
+
+function drawWormholeCore(ctx, cx, cy, t) {
+  const baseR = params.radius * 80;
+  const pulse = Math.sin(t * params.pulse) * 0.15 + 1;
+  const r = baseR * pulse;
+  
+  // 外光晕
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2);
+  gradient.addColorStop(0, 'rgba(0,255,255,0.8)');
+  gradient.addColorStop(0.3, 'rgba(0,200,255,0.4)');
+  gradient.addColorStop(0.7, 'rgba(255,100,0,0.2)');
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 2, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // 核心
+  const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  coreGrad.addColorStop(0, '#fff');
+  coreGrad.addColorStop(0.3, '#0ff');
+  coreGrad.addColorStop(0.8, '#0088aa');
+  coreGrad.addColorStop(1, '#004455');
+  
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // 内部深度效果
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // 高光
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.beginPath();
+  ctx.arc(cx - r * 0.2, cy - r * 0.2, r * 0.15, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawTunnel(ctx, cx, cy, t) {
+  const maxR = Math.min(canvas2.width, canvas2.height) * 0.45;
+  
+  // 背景
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas2.width, canvas2.height);
+  
+  // 隧道效果 - 多层环
+  const layers = 20;
+  for (let i = layers; i >= 0; i--) {
+    const progress = i / layers;
+    const r = maxR * progress;
+    
+    // 颜色：从外围的橙红到中心的蓝白
+    const red = 0.2 + progress * 0.8;
+    const green = 0.1 + progress * 0.5;
+    const blue = progress;
+    const alpha = 0.3 + progress * 0.5;
+    
+    // 旋转效果
+    const rotation = t * params.spin + i * 0.3;
+    
+    ctx.strokeStyle = `rgba(${Math.floor(red*255)},${Math.floor(green*255)},${Math.floor(blue*255)},${alpha})`;
+    ctx.lineWidth = 1 + (1 - progress) * 2;
+    
+    ctx.beginPath();
+    
+    // 扭曲的椭圆
+    const scaleX = 1 + Math.sin(rotation) * 0.2;
+    const scaleY = 1 + Math.cos(rotation) * 0.2;
+    
+    ctx.ellipse(cx, cy, r * scaleX, r * scaleY, rotation * 0.5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  
+  // 中心虫洞 - 高能核心
+  const coreR = params.radius * 50 * (1 + Math.sin(t * params.pulse) * 0.1);
+  
+  const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+  coreGrad.addColorStop(0, '#fff');
+  coreGrad.addColorStop(0.2, '#aff');
+  coreGrad.addColorStop(0.5, '#0ff');
+  coreGrad.addColorStop(0.8, '#08a');
+  coreGrad.addColorStop(1, 'rgba(0,50,80,0)');
+  
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // 能量流动线
+  const lines = 8;
+  for (let i = 0; i < lines; i++) {
+    const angle = (i / lines) * Math.PI * 2 + t * params.spin;
+    const innerR = coreR * 0.5;
+    const outerR = maxR * 0.9;
+    
+    ctx.strokeStyle = `rgba(0,255,255,${0.3 - progress * 0.2})`;
+    ctx.lineWidth = 1;
+    
+    ctx.beginPath();
+    for (let j = 0; j <= 20; j++) {
+      const p = j / 20;
+      const rL = innerR + (outerR - innerR) * p;
+      const wobble = Math.sin(p * 10 + t * 3) * 5;
+      const x = cx + rL * Math.cos(angle + wobble * 0.05);
+      const y = cy + rL * Math.sin(angle + wobble * 0.05);
+      if (j === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  
+  // 粒子效果
+  const particles = 30;
+  for (let i = 0; i < particles; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * maxR;
+    const x = cx + dist * Math.cos(angle + t * 0.5);
+    const y = cy + dist * Math.sin(angle + t * 0.5);
+    const size = Math.random() * 2 + 0.5;
+    const alpha = Math.random() * 0.5 + 0.2;
+    
+    ctx.fillStyle = `rgba(0,255,255,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawAccretionDisk(ctx, cx, cy, t) {
+  // 吸积盘 - 橙红色高能物质
+  const diskR = params.radius * 120;
+  
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(t * params.spin * 0.5);
+  
+  const gradient = ctx.createRadialGradient(0, 0, diskR * 0.3, 0, 0, diskR);
+  gradient.addColorStop(0, 'rgba(255,200,100,0)');
+  gradient.addColorStop(0.3, 'rgba(255,150,50,0.3)');
+  gradient.addColorStop(0.7, 'rgba(255,80,0,0.5)');
+  gradient.addColorStop(1, 'rgba(255,50,0,0)');
+  
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, diskR, diskR * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // 吸积盘纹理
+  ctx.strokeStyle = 'rgba(255,200,100,0.3)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 8; i++) {
+    const r = diskR * (0.4 + i * 0.08);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r, r * 0.3, i * 0.2, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  
+  ctx.restore();
+}
+
+let time = 0;
+
+function render() {
+  time += 0.02;
+  
+  const w1 = canvas1.width, h1 = canvas1.height;
+  const w2 = canvas2.width, h2 = canvas2.height;
+  
+  // === Canvas 1: 引力透镜 ===
+  ctx1.fillStyle = '#000';
+  ctx1.fillRect(0, 0, w1, h1);
+  
+  drawStars(ctx1, w1, h1, 250);
+  
+  const cx1 = w1 / 2, cy1 = h1 / 2;
+  
+  drawLensingRings(ctx1, cx1, cy1, 150, time);
+  drawAccretionDisk(ctx1, cx1, cy1, time);
+  drawWormholeCore(ctx1, cx1, cy1, time);
+  
+  // === Canvas 2: 虫洞隧道 ===
+  drawTunnel(ctx2, w2/2, h2/2, time);
+  
+  requestAnimationFrame(render);
+}
+
+render();
+</script>
+</body>
+</html>

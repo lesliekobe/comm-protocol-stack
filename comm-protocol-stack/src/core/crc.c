@@ -120,3 +120,19 @@ uint16_t checksum_sum16(const uint8_t *data, uint32_t len) {
     }
     return (uint16_t)sum;
 }
+
+/* =============== CRC16-Modbus 增量更新 =============== */
+uint16_t crc16_modbus_update(uint16_t crc, const uint8_t *data, uint32_t len) {
+    for (uint32_t i = 0; i < len; i++) {
+        crc ^= data[i];
+        for (uint8_t j = 0; j < 8; j++) {
+            if (crc & 0x0001) {
+                crc >>= 1;
+                crc ^= 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc;
+}
